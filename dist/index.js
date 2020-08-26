@@ -3238,6 +3238,8 @@ function run() {
             const cwd = process.cwd();
             const yarnLock = yield utils_1.fileExists(path_1.default.resolve(cwd, 'yarn.lock'));
             const packageLock = yield utils_1.fileExists(path_1.default.resolve(cwd, 'package-lock.json'));
+            const cdScript = `cd ${args.directory}`;
+            yield exec_1.exec(cdScript);
             let npm = `npm`;
             let installScript = `npm install`;
             if (yarnLock) {
@@ -3290,6 +3292,7 @@ function run() {
                 yield exec_1.exec(`git reset --hard ${pr.base.sha}`);
             }
             core_1.endGroup();
+            yield exec_1.exec(cdScript);
             core_1.startGroup(`[base] Install Dependencies`);
             yield exec_1.exec(installScript);
             core_1.endGroup();
@@ -3397,7 +3400,8 @@ function run() {
 }
 function getAndValidateArgs() {
     const args = {
-        repoToken: core_1.getInput('repo-token', { required: true })
+        repoToken: core_1.getInput('repo-token', { required: true }),
+        directory: core_1.getInput('directory')
     };
     return args;
 }

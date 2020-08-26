@@ -11,6 +11,7 @@ type GithubClient = InstanceType<typeof GitHub>
 
 type Args = {
     repoToken: string
+    directory: string
 }
 
 async function run(): Promise<void> {
@@ -43,6 +44,9 @@ async function run(): Promise<void> {
 
         const yarnLock = await fileExists(path.resolve(cwd, 'yarn.lock'))
         const packageLock = await fileExists(path.resolve(cwd, 'package-lock.json'))
+
+        const cdScript = `cd ${args.directory}`
+        await exec(cdScript)
 
         let npm = `npm`
         let installScript = `npm install`
@@ -95,6 +99,7 @@ async function run(): Promise<void> {
         }
         endGroup()
 
+        await exec(cdScript)
         startGroup(`[base] Install Dependencies`)
         await exec(installScript)
         endGroup()
@@ -220,7 +225,8 @@ async function run(): Promise<void> {
 
 function getAndValidateArgs(): Args {
     const args = {
-        repoToken: getInput('repo-token', { required: true })
+        repoToken: getInput('repo-token', { required: true }),
+        directory: getInput('directory')
     }
 
     return args
