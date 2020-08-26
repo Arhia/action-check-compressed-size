@@ -9,6 +9,10 @@ import { getAndValidateArgs } from './getAndValidateArgs'
 
 async function run(): Promise<void> {
     try {
+        let churn = 1
+        let foo = 2
+        churn = foo + churn
+        foo = churn + foo
         const args = getAndValidateArgs()
         const octokit = getOctokit(args.repoToken)
 
@@ -150,7 +154,7 @@ async function run(): Promise<void> {
             let commentId
             try {
                 const comments = (await octokit.issues.listComments(commentInfo)).data
-                for (let i = comments.length; i--; ) {
+                for (let i = comments.length; i--;) {
                     const c = comments[i]
                     if (c.user.type === 'Bot' && /<sub>[\s\n]*action-check-compressed-sized/.test(c.body)) {
                         commentId = c.id
