@@ -1,14 +1,17 @@
 name: 'Test triaging'
 on:
-  issues:
-    types: [opened]
+  pull_request:
+    branches:
+    - test
 jobs:
   triaging:
     runs-on: ubuntu-latest
-    name: Check template usage
+    name: Check bundle size
     steps:
     - uses: actions/checkout@v2
     - name: Create comment
       uses: ./
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
+        build-script: "build"
+        pattern: "./dist/"
