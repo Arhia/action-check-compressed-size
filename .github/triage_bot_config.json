@@ -1,0 +1,14 @@
+{
+    "labels": [
+        {
+            "label": "Nature: bug :bug:",
+            "glob": "*bug*"
+        },
+        {
+            "label": ":warning:Status: invalid (issue template not used)",
+            "glob": "*GENERATED_BY_TEMPLATE*",
+            "negate": true,
+            "comment": "Bonjour\nVous n'avez pas utilisé le modèle de création de ticket, votre ticket ne pourra pas être traité.\n\n Merci de sélectionner le modèle approprié à la création du ticket quand vous cliquez sur 'New Issue' "
+        }
+    ]
+}

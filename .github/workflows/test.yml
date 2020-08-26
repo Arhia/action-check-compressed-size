@@ -1,0 +1,14 @@
+name: 'Test triaging'
+on:
+  issues:
+    types: [opened]
+jobs:
+  triaging:
+    runs-on: ubuntu-latest
+    name: Check template usage
+    steps:
+    - uses: actions/checkout@v2
+    - name: Create comment
+      uses: ./
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
