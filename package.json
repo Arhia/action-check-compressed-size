@@ -1,8 +1,8 @@
 {
-  "name": "test-action",
+  "name": "action-check-compressed-size",
   "version": "0.1.0",
   "private": true,
-  "description": "TypeScript template action",
+  "description": "Action to check bundle size",
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
@@ -25,10 +25,12 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "1.2.4",
+    "@actions/exec": "1.0.3",
     "@actions/github": "4.0.0",
     "@octokit/rest": "18.0.3",
-    "@types/micromatch": "^4.0.1",
-    "micromatch": "4.0.2"
+    "micromatch": "4.0.2",
+    "pretty-bytes": "5.3.0",
+    "size-plugin-core": "0.0.9"
   },
   "devDependencies": {
     "@types/jest": "26.0.10",
