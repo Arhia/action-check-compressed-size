@@ -4,12 +4,12 @@ on:
     branches:
     - test
 jobs:
-  triaging:
+  check-bundle-size:
     runs-on: ubuntu-latest
     name: Check bundle size
     steps:
     - uses: actions/checkout@v2
-    - name: Create comment
+    - name: Check size
       uses: ./
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
