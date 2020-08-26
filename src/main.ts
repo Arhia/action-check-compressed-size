@@ -1,154 +1,229 @@
-import * as core from '@actions/core'
-import * as github from '@actions/github'
+import { info, startGroup, endGroup, getInput, error, setFailed, debug } from '@actions/core'
+import path from 'path'
+import { context, getOctokit } from '@actions/github'
 import { GitHub } from '@actions/github/lib/utils'
-import * as micromatch from 'micromatch'
+import { exec } from '@actions/exec'
+import SizePlugin from 'size-plugin-core'
+import { fileExists, diffTable, toBool, stripHash } from './utils'
+import { createCheck } from './createCheck'
+
 type GithubClient = InstanceType<typeof GitHub>
-interface GithubIssue {
-  body: string
-  number: number
-  active_lock_reason: string | null
-  assignee: string | null
-  assignees: string[]
-  author_association: string
-  closed_at: string | null
-  created_at: string | null
-  comments: number
-  id: number
-  title: string
-  labels: string[]
-}
 
 type Args = {
-  repoToken: string
-  configPath: string
-}
-
-export type TriageBotConfig = {
-  labels: {
-    label: string
-    glob: string
-    comment?: string
-    negate?: boolean
-  }[]
-  comment?: string
-  no_label_comment?: string
+    repoToken: string
 }
 
 async function run(): Promise<void> {
-  try {
-    const args = getAndValidateArgs()
-    core.info('Starting GitHub Client')
-    const client = github.getOctokit(args.repoToken)
+    try {
+        const args = getAndValidateArgs()
+        info('Starting GitHub Client')
+        const octokit = getOctokit(args.repoToken)
 
-    const issue = (github.context.payload.issue as unknown) as GithubIssue
-    if (!issue) {
-      core.error('No issue context found. This action can only run on issue creation.')
-      return
+        const { number: pull_number } = context.issue
+
+        const pr = context.payload.pull_request
+
+        if (!pr) {
+            throw Error(
+                'Could not retrieve PR information. Only "pull_request" triggered workflows are currently supported.'
+            )
+        }
+
+        const plugin = new SizePlugin({
+            compression: getInput('compression'),
+            pattern: getInput('pattern') || '**/dist/**/*.js',
+            exclude: getInput('exclude') || '{**/*.map,**/node_modules/**}',
+            stripHash: stripHash(getInput('strip-hash'))
+        })
+
+        info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`)
+
+        const buildScript = getInput('build-script') || 'build'
+        const cwd = process.cwd()
+
+        const yarnLock = await fileExists(path.resolve(cwd, 'yarn.lock'))
+        const packageLock = await fileExists(path.resolve(cwd, 'package-lock.json'))
+
+        let npm = `npm`
+        let installScript = `npm install`
+        if (yarnLock) {
+            installScript = npm = `yarn --frozen-lockfile`
+        } else if (packageLock) {
+            installScript = `npm ci`
+        }
+
+        startGroup(`[current] Install Dependencies`)
+        info(`Installing using ${installScript}`)
+        await exec(installScript)
+        endGroup()
+
+        startGroup(`[current] Build using ${npm}`)
+        info(`Building using ${npm} run ${buildScript}`)
+        await exec(`${npm} run ${buildScript}`)
+        endGroup()
+
+        const newSizes = await plugin.readFromDisk(cwd)
+
+        startGroup(`[base] Checkout target branch`)
+        let baseRef
+        try {
+            baseRef = context.payload.base.ref
+            if (!baseRef) throw Error('missing context.payload.pull_request.base.ref')
+            await exec(`git fetch -n origin ${context.payload.pull_request!.base.ref}`)
+            debug('successfully fetched base.ref')
+        } catch (errFetchBaseRef) {
+            debug(`fetching base.ref failed ${errFetchBaseRef.message}`)
+            try {
+                await exec(`git fetch -n origin ${pr.base.sha}`)
+                debug('successfully fetched base.sha')
+            } catch (errFetchBaseSha) {
+                debug(`fetching base.sha failed ${errFetchBaseSha.message}`)
+                try {
+                    await exec(`git fetch -n`)
+                } catch (errFetch) {
+                    debug(`fetch failed ${errFetch.message}`)
+                }
+            }
+        }
+
+        debug('checking out and building base commit')
+        try {
+            if (!baseRef) throw Error('missing context.payload.base.ref')
+            await exec(`git reset --hard ${baseRef}`)
+        } catch (e) {
+            await exec(`git reset --hard ${pr.base.sha}`)
+        }
+        endGroup()
+
+        startGroup(`[base] Install Dependencies`)
+        await exec(installScript)
+        endGroup()
+
+        startGroup(`[base] Build using ${npm}`)
+        await exec(`${npm} run ${buildScript}`)
+        endGroup()
+
+        const oldSizes = await plugin.readFromDisk(cwd)
+
+        const diff = await plugin.getDiff(oldSizes, newSizes)
+
+        startGroup(`Size Differences:`)
+        const cliText = await plugin.printSizes(diff)
+        debug(cliText)
+        endGroup()
+
+        const markdownDiff = diffTable(diff, {
+            collapseUnchanged: toBool(getInput('collapse-unchanged')),
+            omitUnchanged: toBool(getInput('omit-unchanged')),
+            showTotal: toBool(getInput('show-total')),
+            minimumChangeThreshold: parseInt(getInput('minimum-change-threshold'), 10)
+        })
+
+        let outputRawMarkdown = false
+
+        const commentInfo = {
+            ...context.repo,
+            issue_number: pull_number
+        }
+
+        const comment = {
+            ...commentInfo,
+            body:
+                markdownDiff +
+                '\n\n<a href="https://github.com/preactjs/compressed-size-action"><sub>compressed-size-action</sub></a>'
+        }
+
+        if (toBool(getInput('use-check'))) {
+            if (args.repoToken) {
+                const finish = await createCheck(octokit, context)
+                await finish({
+                    conclusion: 'success',
+                    output: {
+                        title: `Compressed Size Action`,
+                        summary: markdownDiff
+                    }
+                })
+            } else {
+                outputRawMarkdown = true
+            }
+        } else {
+            startGroup(`Updating stats PR comment`)
+            let commentId
+            try {
+                const comments = (await octokit.issues.listComments(commentInfo)).data
+                for (let i = comments.length; i--; ) {
+                    const c = comments[i]
+                    if (c.user.type === 'Bot' && /<sub>[\s\n]*(compressed|gzip)-size-action/.test(c.body)) {
+                        commentId = c.id
+                        break
+                    }
+                }
+            } catch (e) {
+                debug(`Error checking for previous comments: ${e.message}`)
+            }
+
+            if (commentId) {
+                debug(`Updating previous comment #${commentId}`)
+                try {
+                    await octokit.issues.updateComment({
+                        ...context.repo,
+                        comment_id: commentId,
+                        body: comment.body
+                    })
+                } catch (e) {
+                    debug(`Error editing previous comment: ${e.message}`)
+                    commentId = null
+                }
+            }
+
+            // no previous or edit failed
+            if (!commentId) {
+                debug('Creating new comment')
+                try {
+                    await octokit.issues.createComment(comment)
+                } catch (e) {
+                    debug(`Error creating comment: ${e.message}`)
+                    debug(`Submitting a PR review comment instead...`)
+                    try {
+                        const issue = context.issue || pr
+                        await octokit.pulls.createReview({
+                            owner: issue.owner,
+                            repo: issue.repo,
+                            pull_number: issue.number,
+                            event: 'COMMENT',
+                            body: comment.body
+                        })
+                    } catch (errCreateComment) {
+                        debug(`Error creating PR review ${errCreateComment.message}`)
+                        outputRawMarkdown = true
+                    }
+                }
+            }
+            endGroup()
+        }
+
+        if (outputRawMarkdown) {
+            error(
+                `
+			Error: compressed-size-action was unable to comment on your PR.
+			This can happen for PR's originating from a fork without write permissions.
+			You can copy the size table directly into a comment using the markdown below:
+			\n\n${comment.body}\n\n
+		`.replace(/^(\t| {2})+/gm, '')
+            )
+        }
+    } catch (errorAction) {
+        error(errorAction)
+        setFailed(errorAction.message)
     }
-    core.debug(`Issue body content from context : \n ${issue.body}`)
-
-    core.info(`Loading config file at ${args.configPath}`)
-    const config = await getConfig(client, args.configPath)
-
-    const { matchingLabels, comments } = processIssue({ config, issue })
-
-    if (matchingLabels.length > 0) {
-      core.info(`Adding labels ${matchingLabels.join(', ')} to issue #${issue.number}`)
-
-      await addLabels(client, issue.number, matchingLabels)
-
-      if (comments.length) {
-        await writeComment(client, issue.number, comments.join('\n\n'))
-      }
-    } else if (config.no_label_comment) {
-      core.info(`Adding comment to issue #${issue.number}, because no labels match`)
-
-      await writeComment(client, issue.number, config.no_label_comment)
-    }
-  } catch (error) {
-    core.error(error)
-    core.setFailed(error.message)
-  }
-}
-
-export function processIssue({
-  config,
-  issue
-}: {
-  config: TriageBotConfig
-  issue: { body: string }
-}): {
-  matchingLabels: string[]
-  comments: string[]
-} {
-  const matchingLabels: string[] = []
-  const comments: string[] = config.comment ? [config.comment] : []
-
-  const lines = issue.body.split(/\r?\n|\r/g)
-
-  for (const label of config.labels) {
-    const isNegated = label.negate === true
-    let isMatching: boolean
-    if (isNegated) {
-      // si on negate le patern, aucune ligne ne doit contenir le pattern
-      isMatching = !lines.some(l => micromatch.isMatch(l, label.glob))
-    } else {
-      // pattern normal, au mois 1 ligne doit contenir le pattern
-      isMatching = lines.some(l => micromatch.isMatch(l, label.glob))
-    }
-
-    if (isMatching) {
-      core.debug(`Match in body for pattern ${label.glob}`)
-      matchingLabels.push(label.label)
-      if (label.comment) {
-        comments.push(label.comment)
-      }
-    } else {
-      core.debug(`No match in body for pattern ${label.glob}`)
-    }
-  }
-  return {
-    matchingLabels,
-    comments
-  }
-}
-
-async function writeComment(client: GithubClient, issueId: number, body: string): Promise<void> {
-  await client.issues.createComment({
-    owner: github.context.repo.owner,
-    repo: github.context.repo.repo,
-    issue_number: issueId,
-    body
-  })
-}
-
-async function addLabels(client: GithubClient, issueId: number, labels: string[]): Promise<void> {
-  await client.issues.addLabels({
-    owner: github.context.repo.owner,
-    repo: github.context.repo.repo,
-    issue_number: issueId,
-    labels
-  })
-}
-
-async function getConfig(client: GithubClient, configPath: string): Promise<TriageBotConfig> {
-  const response = await client.repos.getContent({
-    owner: github.context.repo.owner,
-    repo: github.context.repo.repo,
-    path: configPath,
-    ref: github.context.sha
-  })
-
-  return JSON.parse(Buffer.from(response.data.content, 'base64').toString())
 }
 
 function getAndValidateArgs(): Args {
-  const args = {
-    repoToken: core.getInput('repo-token', { required: true }),
-    configPath: core.getInput('config-path', { required: true })
-  }
+    const args = {
+        repoToken: getInput('repo-token', { required: true })
+    }
 
-  return args
+    return args
 }
 
 run()
