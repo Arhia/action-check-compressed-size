@@ -3311,7 +3311,9 @@ function run() {
             let outputRawMarkdown = false;
             const commentInfo = Object.assign(Object.assign({}, github_1.context.repo), { issue_number: pull_number });
             const comment = Object.assign(Object.assign({}, commentInfo), { body: markdownDiff +
-                    '\n\n<a href="https://github.com/preactjs/compressed-size-action"><sub>compressed-size-action</sub></a>' });
+                    `
+                <a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>
+                ` });
             if (utils_1.toBool(core_1.getInput('use-check'))) {
                 if (args.repoToken) {
                     const finish = yield createCheck_1.createCheck(octokit, github_1.context);
