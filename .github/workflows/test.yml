@@ -1,4 +1,4 @@
-name: 'Test triaging'
+name: 'Test check bundle size'
 on:
   pull_request:
     branches:
