@@ -40,13 +40,14 @@ async function run(): Promise<void> {
         info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`)
 
         const buildScript = getInput('build-script') || 'build'
-        const cwd = process.cwd()
+        const workingDir = path.join(process.cwd(), args.directory)
 
-        const yarnLock = await fileExists(path.resolve(cwd, 'yarn.lock'))
-        const packageLock = await fileExists(path.resolve(cwd, 'package-lock.json'))
+        const yarnLock = await fileExists(path.resolve(workingDir, 'yarn.lock'))
+        const packageLock = await fileExists(path.resolve(workingDir, 'package-lock.json'))
 
-        const cdScript = `cd ${args.directory}`
-        await exec(cdScript)
+        const execOptions = {
+            ...(args.directory ? { cwd: args.directory } : {})
+        }
 
         let npm = `npm`
         let installScript = `npm install`
@@ -58,15 +59,15 @@ async function run(): Promise<void> {
 
         startGroup(`[current] Install Dependencies`)
         info(`Installing using ${installScript}`)
-        await exec(installScript)
+        await exec(installScript, [], execOptions)
         endGroup()
 
         startGroup(`[current] Build using ${npm}`)
         info(`Building using ${npm} run ${buildScript}`)
-        await exec(`${npm} run ${buildScript}`)
+        await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
-        const newSizes = await plugin.readFromDisk(cwd)
+        const newSizes = await plugin.readFromDisk(workingDir)
 
         startGroup(`[base] Checkout target branch`)
         let baseRef
@@ -99,16 +100,15 @@ async function run(): Promise<void> {
         }
         endGroup()
 
-        await exec(cdScript)
         startGroup(`[base] Install Dependencies`)
-        await exec(installScript)
+        await exec(installScript, [], execOptions)
         endGroup()
 
         startGroup(`[base] Build using ${npm}`)
-        await exec(`${npm} run ${buildScript}`)
+        await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
-        const oldSizes = await plugin.readFromDisk(cwd)
+        const oldSizes = await plugin.readFromDisk(workingDir)
 
         const diff = await plugin.getDiff(oldSizes, newSizes)
 

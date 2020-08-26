@@ -3235,11 +3235,10 @@ function run() {
             });
             core_1.info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`);
             const buildScript = core_1.getInput('build-script') || 'build';
-            const cwd = process.cwd();
-            const yarnLock = yield utils_1.fileExists(path_1.default.resolve(cwd, 'yarn.lock'));
-            const packageLock = yield utils_1.fileExists(path_1.default.resolve(cwd, 'package-lock.json'));
-            const cdScript = `cd ${args.directory}`;
-            yield exec_1.exec(cdScript);
+            const workingDir = path_1.default.join(process.cwd(), args.directory);
+            const yarnLock = yield utils_1.fileExists(path_1.default.resolve(workingDir, 'yarn.lock'));
+            const packageLock = yield utils_1.fileExists(path_1.default.resolve(workingDir, 'package-lock.json'));
+            const execOptions = Object.assign({}, (args.directory ? { cwd: args.directory } : {}));
             let npm = `npm`;
             let installScript = `npm install`;
             if (yarnLock) {
@@ -3250,13 +3249,13 @@ function run() {
             }
             core_1.startGroup(`[current] Install Dependencies`);
             core_1.info(`Installing using ${installScript}`);
-            yield exec_1.exec(installScript);
+            yield exec_1.exec(installScript, [], execOptions);
             core_1.endGroup();
             core_1.startGroup(`[current] Build using ${npm}`);
             core_1.info(`Building using ${npm} run ${buildScript}`);
-            yield exec_1.exec(`${npm} run ${buildScript}`);
+            yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
-            const newSizes = yield plugin.readFromDisk(cwd);
+            const newSizes = yield plugin.readFromDisk(workingDir);
             core_1.startGroup(`[base] Checkout target branch`);
             let baseRef;
             try {
@@ -3292,14 +3291,13 @@ function run() {
                 yield exec_1.exec(`git reset --hard ${pr.base.sha}`);
             }
             core_1.endGroup();
-            yield exec_1.exec(cdScript);
             core_1.startGroup(`[base] Install Dependencies`);
-            yield exec_1.exec(installScript);
+            yield exec_1.exec(installScript, [], execOptions);
             core_1.endGroup();
             core_1.startGroup(`[base] Build using ${npm}`);
-            yield exec_1.exec(`${npm} run ${buildScript}`);
+            yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
-            const oldSizes = yield plugin.readFromDisk(cwd);
+            const oldSizes = yield plugin.readFromDisk(workingDir);
             const diff = yield plugin.getDiff(oldSizes, newSizes);
             core_1.startGroup(`Size Differences:`);
             const cliText = yield plugin.printSizes(diff);
