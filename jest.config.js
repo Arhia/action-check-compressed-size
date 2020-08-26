@@ -7,12 +7,5 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest'
   },
-  verbose: true,
-  globals: {
-    'ts-jest': {
-      diagnostics: {
-        warnOnly: true
-      }
-    }
-  }
+  verbose: true
 }
