@@ -130,7 +130,7 @@ async function run(): Promise<void> {
             ...commentInfo,
             body:
                 markdownDiff +
-                '\n\n<a href="https://github.com/preactjs/compressed-size-action"><sub>compressed-size-action</sub></a>'
+                '\n\n<a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>'
         }
 
         if (toBool(getInput('use-check'))) {
