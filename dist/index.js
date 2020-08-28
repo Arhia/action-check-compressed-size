@@ -3337,7 +3337,7 @@ function run() {
                     const comments = (yield octokit.issues.listComments(commentInfo)).data;
                     for (let i = comments.length; i--;) {
                         const c = comments[i];
-                        if (c.user.type === 'Bot' && /<sub>[\s\n]*(compressed|gzip)-size-action/.test(c.body)) {
+                        if (c.user.type === 'Bot' && /<sub>[\s\n]*action-check-compressed-sized/.test(c.body)) {
                             commentId = c.id;
                             break;
                         }
