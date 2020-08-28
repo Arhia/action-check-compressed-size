@@ -1,6 +1,13 @@
-# compressed-size-action
+# action-check-compressed-size
 
 A GitHub action that reports changes in compressed file sizes on your PRs.
+
+**Heavily inspired by https://github.com/preactjs/compressed-size-action plus**  
+**- rewritten in Typescript 🎉**  
+**- can install packages in a subdirectory**  
+**- allow to normalize both js and css files**  
+
+**Used in production at [Arhia](https://github.com/Arhia)**  
 
 - Automatically uses `yarn` or `npm ci` when lockfiles are present
 - Builds your PR, then builds the target and compares between the two
@@ -16,14 +23,10 @@ Add a workflow (`.github/workflows/main.yml`):
 
 ```yaml
 name: Compressed Size
-
 on: [pull_request]
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - uses: Arhia/action-check-compressed-size@v04
@@ -33,7 +36,7 @@ jobs:
 
 ### Customizing the Build
 
-By default, `compressed-size-action` will try to build your PR by running the `"build"` [npm script](https://docs.npmjs.com/misc/scripts) in your `package.json`.
+By default, this action will try to build your PR by running the `"build"` [npm script](https://docs.npmjs.com/misc/scripts) in your `package.json`.
 
 If you need to perform some tasks after dependencies are installed but before building, you can use a "postinstall" npm script to do so. For example, in Lerna-based monorepo:
 
@@ -93,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: preactjs/compressed-size-action@v2
+    - uses: Arhia/action-check-compressed-size@v0.4
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 +       pattern: "./build-output/**/*.{js,css,html,json}"
