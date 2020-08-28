@@ -17,7 +17,6 @@ type Args = {
 async function run(): Promise<void> {
     try {
         const args = getAndValidateArgs()
-        info('Starting GitHub Client')
         const octokit = getOctokit(args.repoToken)
 
         const { number: pull_number } = context.issue
@@ -41,6 +40,7 @@ async function run(): Promise<void> {
 
         const buildScript = getInput('build-script') || 'build'
         const workingDir = path.join(process.cwd(), args.directory)
+        info(`Working directory : ${workingDir}`)
 
         const yarnLock = await fileExists(path.resolve(workingDir, 'yarn.lock'))
         const packageLock = await fileExists(path.resolve(workingDir, 'package-lock.json'))
@@ -57,19 +57,19 @@ async function run(): Promise<void> {
             installScript = `npm ci`
         }
 
-        startGroup(`[current] Install Dependencies`)
+        startGroup(`[current branch] Install Dependencies`)
         info(`Installing using ${installScript}`)
         await exec(installScript, [], execOptions)
         endGroup()
 
-        startGroup(`[current] Build using ${npm}`)
+        startGroup(`[current branch] Build using ${npm}`)
         info(`Building using ${npm} run ${buildScript}`)
         await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
         const newSizes = await plugin.readFromDisk(workingDir)
 
-        startGroup(`[base] Checkout target branch`)
+        startGroup(`[base branch] Checkout target branch`)
         let baseRef
         try {
             baseRef = context.payload.base.ref
@@ -100,11 +100,11 @@ async function run(): Promise<void> {
         }
         endGroup()
 
-        startGroup(`[base] Install Dependencies`)
+        startGroup(`[base branch] Install Dependencies`)
         await exec(installScript, [], execOptions)
         endGroup()
 
-        startGroup(`[base] Build using ${npm}`)
+        startGroup(`[base branch] Build using ${npm}`)
         await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
@@ -156,7 +156,7 @@ async function run(): Promise<void> {
             let commentId
             try {
                 const comments = (await octokit.issues.listComments(commentInfo)).data
-                for (let i = comments.length; i--; ) {
+                for (let i = comments.length; i--;) {
                     const c = comments[i]
                     if (c.user.type === 'Bot' && /<sub>[\s\n]*(compressed|gzip)-size-action/.test(c.body)) {
                         commentId = c.id
