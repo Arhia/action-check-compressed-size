@@ -67,7 +67,7 @@ async function run(): Promise<void> {
         await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
-        const newSizes = await plugin.readFromDisk(process.cwd())
+        const newSizes = await plugin.readFromDisk(workingDir)
 
         startGroup(`[base branch] Checkout target branch`)
         let baseRef
