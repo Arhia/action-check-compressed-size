@@ -3216,10 +3216,11 @@ const exec_1 = __webpack_require__(514);
 const size_plugin_core_1 = __importDefault(__webpack_require__(259));
 const utils_1 = __webpack_require__(918);
 const createCheck_1 = __webpack_require__(502);
+const getAndValidateArgs_1 = __webpack_require__(685);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const args = getAndValidateArgs();
+            const args = getAndValidateArgs_1.getAndValidateArgs();
             const octokit = github_1.getOctokit(args.repoToken);
             const { number: pull_number } = github_1.context.issue;
             const pr = github_1.context.payload.pull_request;
@@ -3227,10 +3228,10 @@ function run() {
                 throw Error('Could not retrieve PR information. Only "pull_request" triggered workflows are currently supported.');
             }
             const plugin = new size_plugin_core_1.default({
-                compression: core_1.getInput('compression'),
-                pattern: core_1.getInput('pattern') || '**/dist/**/*.js',
-                exclude: core_1.getInput('exclude') || '{**/*.map,**/node_modules/**}',
-                stripHash: utils_1.stripHash(core_1.getInput('strip-hash'))
+                compression: args.compression,
+                pattern: args.pattern,
+                exclude: args.exclude,
+                stripHash: utils_1.stripHash(args.stripHashPattern)
             });
             core_1.info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`);
             const buildScript = core_1.getInput('build-script') || 'build';
@@ -3395,13 +3396,6 @@ function run() {
             core_1.setFailed(errorAction.message);
         }
     });
-}
-function getAndValidateArgs() {
-    const args = {
-        repoToken: core_1.getInput('repo-token', { required: true }),
-        directory: core_1.getInput('directory')
-    };
-    return args;
 }
 run();
 
@@ -16849,7 +16843,29 @@ module.exports = mkdirsSync
 
 
 /***/ }),
-/* 685 */,
+/* 685 */
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAndValidateArgs = void 0;
+const core_1 = __webpack_require__(186);
+function getAndValidateArgs() {
+    const args = {
+        repoToken: core_1.getInput('repo-token', { required: true }),
+        directory: core_1.getInput('directory'),
+        pattern: core_1.getInput('pattern') || '**/dist/**/*.js',
+        exclude: core_1.getInput('exclude') || '{**/*.map,**/node_modules/**}',
+        compression: core_1.getInput('compression'),
+        stripHashPattern: JSON.parse(core_1.getInput('strip-hash'))
+    };
+    return args;
+}
+exports.getAndValidateArgs = getAndValidateArgs;
+
+
+/***/ }),
 /* 686 */,
 /* 687 */,
 /* 688 */,
@@ -20298,20 +20314,24 @@ exports.fileExists = fileExists;
  * Remove any matched hash patterns from a filename string.
  * @returns {(((fileName: string) => string) | undefined)}
  */
-function stripHash(regex) {
-    if (regex) {
+function stripHash(allRegex) {
+    if (allRegex && allRegex.length) {
         return function (fileName) {
-            return fileName.replace(new RegExp(regex), (str, ...hashes) => {
-                hashes = hashes.slice(0, -2).filter(c => c != null);
-                if (hashes.length) {
-                    for (const hash of hashes) {
-                        const hashFormatted = hash || '';
-                        str = str.replace(hashFormatted, hashFormatted.replace(/./g, '*'));
+            let finalStr = fileName;
+            for (const regex of allRegex) {
+                finalStr = finalStr.replace(new RegExp(regex), (str, ...hashes) => {
+                    hashes = hashes.slice(0, -2).filter(c => c != null);
+                    if (hashes.length) {
+                        for (const hash of hashes) {
+                            const hashFormatted = hash || '';
+                            str = str.replace(hashFormatted, hashFormatted.replace(/./g, '*'));
+                        }
+                        return str;
                     }
-                    return str;
-                }
-                return '';
-            });
+                    return '';
+                });
+            }
+            return finalStr;
         };
     }
     return undefined;

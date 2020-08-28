@@ -18,20 +18,24 @@ export async function fileExists(filename: string): Promise<boolean> {
  * Remove any matched hash patterns from a filename string.
  * @returns {(((fileName: string) => string) | undefined)}
  */
-export function stripHash(regex: string): ((fileName: string) => string) | undefined {
-    if (regex) {
-        return function (fileName: string) {
-            return fileName.replace(new RegExp(regex), (str, ...hashes) => {
-                hashes = hashes.slice(0, -2).filter(c => c != null)
-                if (hashes.length) {
-                    for (const hash of hashes) {
-                        const hashFormatted = hash || ''
-                        str = str.replace(hashFormatted, hashFormatted.replace(/./g, '*'))
+export function stripHash(allRegex: string[]): ((fileName: string) => string) | undefined {
+    if (allRegex && allRegex.length) {
+        return function (fileName: string): string {
+            let finalStr = fileName
+            for (const regex of allRegex) {
+                finalStr = finalStr.replace(new RegExp(regex), (str, ...hashes) => {
+                    hashes = hashes.slice(0, -2).filter(c => c != null)
+                    if (hashes.length) {
+                        for (const hash of hashes) {
+                            const hashFormatted = hash || ''
+                            str = str.replace(hashFormatted, hashFormatted.replace(/./g, '*'))
+                        }
+                        return str
                     }
-                    return str
-                }
-                return ''
-            })
+                    return ''
+                })
+            }
+            return finalStr
         }
     }
 

@@ -70,8 +70,25 @@ test('fileExists', async () => {
     expect(await fileExists('file-that-does-not-exist')).toBe(false)
 })
 
-test('stripHash', () => {
-    expect(stripHash('\\b\\w{5}\\.')!('foo.abcde.js')).toBe('foo.js')
-    expect(stripHash('\\.(\\w{5})\\.chunk\\.js$')!('foo.abcde.chunk.js')).toBe('foo.*****.chunk.js')
-    expect(stripHash('')).toBe(undefined)
+test('stripHash js', () => {
+    expect(stripHash(['\\b\\w{5}\\.'])!('foo.abcde.js')).toBe('foo.js')
+    expect(stripHash(['\\.(\\w{5})\\.chunk\\.js$'])!('foo.abcde.chunk.js')).toBe('foo.*****.chunk.js')
+    expect(stripHash([])).toBe(undefined)
+})
+
+test('stripHash css', () => {
+    expect(stripHash(['\\.(\\w{5})\\.chunk\\.css$'])!('foo.abcde.chunk.css')).toBe('foo.*****.chunk.css')
+})
+
+test('stripHash css file with js pattern', () => {
+    expect(stripHash(['\\.(\\w{5})\\.chunk\\.js$'])!('foo.abcde.chunk.css')).toBe('foo.abcde.chunk.css')
+})
+
+test('stripHash several patterns', () => {
+    expect(stripHash(['\\.(\\w{5})\\.chunk\\.js$', '\\.(\\w{5})\\.chunk\\.css$'])!('foo.abcde.chunk.js')).toBe(
+        'foo.*****.chunk.js'
+    )
+    expect(stripHash(['\\.(\\w{5})\\.chunk\\.js$', '\\.(\\w{5})\\.chunk\\.css$'])!('foo.abcde.chunk.css')).toBe(
+        'foo.*****.chunk.css'
+    )
 })

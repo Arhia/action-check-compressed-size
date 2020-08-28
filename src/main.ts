@@ -6,13 +6,9 @@ import { exec } from '@actions/exec'
 import SizePlugin from 'size-plugin-core'
 import { fileExists, diffTable, toBool, stripHash } from './utils'
 import { createCheck } from './createCheck'
+import { getAndValidateArgs } from './getAndValidateArgs'
 
 type GithubClient = InstanceType<typeof GitHub>
-
-type Args = {
-    repoToken: string
-    directory: string
-}
 
 async function run(): Promise<void> {
     try {
@@ -30,10 +26,10 @@ async function run(): Promise<void> {
         }
 
         const plugin = new SizePlugin({
-            compression: getInput('compression'),
-            pattern: getInput('pattern') || '**/dist/**/*.js',
-            exclude: getInput('exclude') || '{**/*.map,**/node_modules/**}',
-            stripHash: stripHash(getInput('strip-hash'))
+            compression: args.compression,
+            pattern: args.pattern,
+            exclude: args.exclude,
+            stripHash: stripHash(args.stripHashPattern)
         })
 
         info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`)
@@ -221,15 +217,6 @@ async function run(): Promise<void> {
         error(errorAction)
         setFailed(errorAction.message)
     }
-}
-
-function getAndValidateArgs(): Args {
-    const args = {
-        repoToken: getInput('repo-token', { required: true }),
-        directory: getInput('directory')
-    }
-
-    return args
 }
 
 run()
