@@ -15,7 +15,7 @@ export function getAndValidateArgs(): Args {
         pattern: getInput('pattern') || '**/dist/**/*.js',
         exclude: getInput('exclude') || '{**/*.map,**/node_modules/**}',
         compression: getInput('compression'),
-        stripHashPattern: JSON.parse(getInput('strip-hash')) as string[]
+        stripHashPattern: getInput('strip-hash') ? JSON.parse(getInput('strip-hash')) : []
     }
 
     return args

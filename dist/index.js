@@ -16858,7 +16858,7 @@ function getAndValidateArgs() {
         pattern: core_1.getInput('pattern') || '**/dist/**/*.js',
         exclude: core_1.getInput('exclude') || '{**/*.map,**/node_modules/**}',
         compression: core_1.getInput('compression'),
-        stripHashPattern: JSON.parse(core_1.getInput('strip-hash'))
+        stripHashPattern: core_1.getInput('strip-hash') ? JSON.parse(core_1.getInput('strip-hash')) : []
     };
     return args;
 }
