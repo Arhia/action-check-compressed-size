@@ -132,7 +132,7 @@ export function diffTable(
         totalSize += size
         totalDelta += delta
 
-        const difference = ((delta / size) * 100) | 0
+        const difference = (((delta + size) / size) * 100) | 0
         const isUnchanged = Math.abs(delta) < minimumChangeThreshold
 
         if (isUnchanged && omitUnchanged) continue
