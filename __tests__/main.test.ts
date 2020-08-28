@@ -29,7 +29,7 @@ test('diffTable', () => {
         },
         {
             filename: 'two.js',
-            size: -5000,
+            size: 2500,
             delta: -2500
         },
         {
@@ -50,19 +50,58 @@ test('diffTable', () => {
         minimumChangeThreshold: 1
     }
 
-    expect(diffTable(files, { ...defaultOptions })).toMatchSnapshot()
-    expect(diffTable(files, { ...defaultOptions, showTotal: false })).toMatchSnapshot()
-    expect(diffTable(files, { ...defaultOptions, collapseUnchanged: false })).toMatchSnapshot()
-    expect(diffTable(files, { ...defaultOptions, omitUnchanged: true })).toMatchSnapshot()
-    expect(diffTable(files, { ...defaultOptions, minimumChangeThreshold: 10 })).toMatchSnapshot()
+    expect(diffTable(files, { ...defaultOptions }).markdown).toMatchSnapshot()
+    expect(diffTable(files, { ...defaultOptions, showTotal: false }).markdown).toMatchSnapshot()
+    expect(diffTable(files, { ...defaultOptions, collapseUnchanged: false }).markdown).toMatchSnapshot()
+    expect(diffTable(files, { ...defaultOptions, omitUnchanged: true }).markdown).toMatchSnapshot()
+    expect(diffTable(files, { ...defaultOptions, minimumChangeThreshold: 10 }).markdown).toMatchSnapshot()
     expect(
         diffTable(
             files.map(file => ({ ...file, delta: 0 })),
             { ...defaultOptions }
-        )
+        ).markdown
     ).toMatchSnapshot()
 
-    expect(diffTable([files[2]], { ...defaultOptions })).toMatchSnapshot()
+    expect(diffTable([files[2]], { ...defaultOptions }).markdown).toMatchSnapshot()
+})
+
+test('diffTable', () => {
+    const files = [
+        {
+            filename: 'one.js',
+            size: 5000,
+            delta: 2500
+        },
+        {
+            filename: 'two.js',
+            size: 4000,
+            delta: -1000
+        },
+        {
+            filename: 'three.js',
+            size: 505,
+            delta: 5
+        }
+    ]
+    const defaultOptions = {
+        showTotal: true,
+        collapseUnchanged: true,
+        omitUnchanged: false,
+        minimumChangeThreshold: 100
+    }
+    const resultDiff = diffTable(files, { ...defaultOptions })
+    expect(resultDiff.totalDelta).toEqual(1505)
+    expect(resultDiff.totalSize).toEqual(9505)
+
+    const filesInfo = resultDiff.filesInfo
+    expect(filesInfo[0].isUnchanged).toBe(false)
+    expect(filesInfo[0].difference).toEqual(100)
+
+    expect(filesInfo[1].isUnchanged).toBe(false)
+    expect(filesInfo[1].difference).toEqual(-20)
+
+    expect(filesInfo[2].isUnchanged).toBe(true)
+    expect(filesInfo[2].difference).toEqual(1)
 })
 
 test('fileExists', async () => {

@@ -96,7 +96,7 @@ function markdownTable(rows: string[][]): string {
         .join('\n')
 }
 
-interface FileDiff {
+export interface FileDiff {
     filename: string
     size: number
     delta: number
@@ -109,21 +109,30 @@ interface DiffOptions {
     minimumChangeThreshold: number
 }
 
+interface FileInfo {
+    filename: string
+    difference: number
+    isUnchanged: boolean
+}
+
+interface ResultDiff {
+    markdown: string
+    totalSize: number
+    totalDelta: number
+    totalDeltaText: string
+    filesInfo: FileInfo[]
+}
+
 /**
  * Create a Markdown table showing diff data
- * @param {Diff[]} files
- * @param {object} options
- * @param {boolean} [options.showTotal]
- * @param {boolean} [options.collapseUnchanged]
- * @param {boolean} [options.omitUnchanged]
- * @param {number} [options.minimumChangeThreshold]
  */
 export function diffTable(
     files: FileDiff[],
     { showTotal, collapseUnchanged, omitUnchanged, minimumChangeThreshold }: DiffOptions
-) {
+): ResultDiff {
     const changedRows = []
     const unChangedRows = []
+    const filesInfo: FileInfo[] = []
 
     let totalSize = 0
     let totalDelta = 0
@@ -132,8 +141,15 @@ export function diffTable(
         totalSize += size
         totalDelta += delta
 
-        const difference = (((delta + size) / size) * 100) | 0
+        const sizeBefore = size - delta
+        const difference = ((delta / sizeBefore) * 100) | 0
         const isUnchanged = Math.abs(delta) < minimumChangeThreshold
+
+        filesInfo.push({
+            filename,
+            difference,
+            isUnchanged
+        })
 
         if (isUnchanged && omitUnchanged) continue
 
@@ -157,15 +173,23 @@ export function diffTable(
         out += `\n\n<details><summary>ℹ️ <strong>View Unchanged</strong></summary>\n\n${outUnchanged}\n\n</details>\n\n`
     }
 
+    let totalDeltaText = ''
     if (showTotal) {
-        const totalDifference = ((totalDelta / totalSize) * 100) | 0
-        const totalDeltaText = getDeltaText(totalDelta, totalDifference)
+        const totalSizeBefore = totalSize - totalDelta
+        const totalDifference = ((totalDelta / totalSizeBefore) * 100) | 0
+        totalDeltaText = getDeltaText(totalDelta, totalDifference)
         const totalIcon = iconForDifference(totalDifference)
         out = `**Total Size:** ${prettyBytes(totalSize)}\n\n${out}`
         out = `**Size Change:** ${totalDeltaText} ${totalIcon}\n\n${out}`
     }
 
-    return out
+    return {
+        markdown: out,
+        totalSize,
+        totalDelta,
+        totalDeltaText,
+        filesInfo
+    }
 }
 
 /**

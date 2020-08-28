@@ -1,7 +1,7 @@
 {
   "name": "action-check-compressed-size",
-  "version": "0.6.0",
-  "private": true,
+  "version": "0.7.0",
+  "private": false,
   "description": "Action to check bundle size",
   "main": "lib/main.js",
   "scripts": {

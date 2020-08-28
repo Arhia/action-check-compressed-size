@@ -3299,21 +3299,21 @@ function run() {
             yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
             const oldSizes = yield plugin.readFromDisk(workingDir);
-            const diff = yield plugin.getDiff(oldSizes, newSizes);
+            const diff = (yield plugin.getDiff(oldSizes, newSizes));
             core_1.startGroup(`Size Differences:`);
             const cliText = yield plugin.printSizes(diff);
             core_1.info(cliText);
             core_1.endGroup();
-            const markdownDiff = utils_1.diffTable(diff, {
-                collapseUnchanged: utils_1.toBool(core_1.getInput('collapse-unchanged')),
-                omitUnchanged: utils_1.toBool(core_1.getInput('omit-unchanged')),
-                showTotal: utils_1.toBool(core_1.getInput('show-total')),
-                minimumChangeThreshold: parseInt(core_1.getInput('minimum-change-threshold'), 10)
+            const diffResult = utils_1.diffTable(diff, {
+                collapseUnchanged: args.collapseUnchanged,
+                omitUnchanged: args.omitUnchanged,
+                showTotal: args.showTotal,
+                minimumChangeThreshold: args.minimumChangeThreshold
             });
             let outputRawMarkdown = false;
             const commentInfo = Object.assign(Object.assign({}, github_1.context.repo), { issue_number: pull_number });
             const comment = Object.assign(Object.assign({}, commentInfo), { body: `Build has succeed ! 🎉\n\n` +
-                    markdownDiff +
+                    diffResult.markdown +
                     '\n\n<a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>' });
             if (utils_1.toBool(core_1.getInput('use-check'))) {
                 if (args.repoToken) {
@@ -3321,8 +3321,8 @@ function run() {
                     yield finish({
                         conclusion: 'success',
                         output: {
-                            title: `Compressed Size Action`,
-                            summary: markdownDiff
+                            title: `${diffResult.totalDeltaText}`,
+                            summary: diffResult.markdown
                         }
                     });
                 }
@@ -16852,6 +16852,7 @@ module.exports = mkdirsSync
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAndValidateArgs = void 0;
 const core_1 = __webpack_require__(186);
+const utils_1 = __webpack_require__(918);
 function getAndValidateArgs() {
     const args = {
         repoToken: core_1.getInput('repo-token', { required: true }),
@@ -16859,7 +16860,11 @@ function getAndValidateArgs() {
         pattern: core_1.getInput('pattern') || '**/dist/**/*.js',
         exclude: core_1.getInput('exclude') || '{**/*.map,**/node_modules/**}',
         compression: core_1.getInput('compression'),
-        stripHashPattern: core_1.getInput('strip-hash') ? JSON.parse(core_1.getInput('strip-hash')) : []
+        stripHashPattern: core_1.getInput('strip-hash') ? JSON.parse(core_1.getInput('strip-hash')) : [],
+        minimumChangeThreshold: parseInt(core_1.getInput('minimum-change-threshold'), 10),
+        showTotal: utils_1.toBool(core_1.getInput('show-total')),
+        omitUnchanged: utils_1.toBool(core_1.getInput('omit-unchanged')),
+        collapseUnchanged: utils_1.toBool(core_1.getInput('collapse-unchanged'))
     };
     return args;
 }
@@ -20398,24 +20403,25 @@ function markdownTable(rows) {
 }
 /**
  * Create a Markdown table showing diff data
- * @param {Diff[]} files
- * @param {object} options
- * @param {boolean} [options.showTotal]
- * @param {boolean} [options.collapseUnchanged]
- * @param {boolean} [options.omitUnchanged]
- * @param {number} [options.minimumChangeThreshold]
  */
 function diffTable(files, { showTotal, collapseUnchanged, omitUnchanged, minimumChangeThreshold }) {
     const changedRows = [];
     const unChangedRows = [];
+    const filesInfo = [];
     let totalSize = 0;
     let totalDelta = 0;
     for (const file of files) {
         const { filename, size, delta } = file;
         totalSize += size;
         totalDelta += delta;
-        const difference = ((delta / size) * 100) | 0;
+        const sizeBefore = size - delta;
+        const difference = ((delta / sizeBefore) * 100) | 0;
         const isUnchanged = Math.abs(delta) < minimumChangeThreshold;
+        filesInfo.push({
+            filename,
+            difference,
+            isUnchanged
+        });
         if (isUnchanged && omitUnchanged)
             continue;
         const columns = [
@@ -20436,14 +20442,22 @@ function diffTable(files, { showTotal, collapseUnchanged, omitUnchanged, minimum
         const outUnchanged = markdownTable(unChangedRows);
         out += `\n\n<details><summary>ℹ️ <strong>View Unchanged</strong></summary>\n\n${outUnchanged}\n\n</details>\n\n`;
     }
+    let totalDeltaText = '';
     if (showTotal) {
-        const totalDifference = ((totalDelta / totalSize) * 100) | 0;
-        const totalDeltaText = getDeltaText(totalDelta, totalDifference);
+        const totalSizeBefore = totalSize - totalDelta;
+        const totalDifference = ((totalDelta / totalSizeBefore) * 100) | 0;
+        totalDeltaText = getDeltaText(totalDelta, totalDifference);
         const totalIcon = iconForDifference(totalDifference);
         out = `**Total Size:** ${pretty_bytes_1.default(totalSize)}\n\n${out}`;
         out = `**Size Change:** ${totalDeltaText} ${totalIcon}\n\n${out}`;
     }
-    return out;
+    return {
+        markdown: out,
+        totalSize,
+        totalDelta,
+        totalDeltaText,
+        filesInfo
+    };
 }
 exports.diffTable = diffTable;
 /**

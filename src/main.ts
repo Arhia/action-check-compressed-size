@@ -3,7 +3,7 @@ import path from 'path'
 import { context, getOctokit } from '@actions/github'
 import { exec } from '@actions/exec'
 import SizePlugin from 'size-plugin-core'
-import { fileExists, diffTable, toBool, stripHash } from './utils'
+import { fileExists, diffTable, toBool, stripHash, FileDiff } from './utils'
 import { createCheck } from './createCheck'
 import { getAndValidateArgs } from './getAndValidateArgs'
 
@@ -103,18 +103,18 @@ async function run(): Promise<void> {
 
         const oldSizes = await plugin.readFromDisk(workingDir)
 
-        const diff = await plugin.getDiff(oldSizes, newSizes)
+        const diff = (await plugin.getDiff(oldSizes, newSizes)) as FileDiff[]
 
         startGroup(`Size Differences:`)
         const cliText = await plugin.printSizes(diff)
         info(cliText)
         endGroup()
 
-        const markdownDiff = diffTable(diff, {
-            collapseUnchanged: toBool(getInput('collapse-unchanged')),
-            omitUnchanged: toBool(getInput('omit-unchanged')),
-            showTotal: toBool(getInput('show-total')),
-            minimumChangeThreshold: parseInt(getInput('minimum-change-threshold'), 10)
+        const diffResult = diffTable(diff, {
+            collapseUnchanged: args.collapseUnchanged,
+            omitUnchanged: args.omitUnchanged,
+            showTotal: args.showTotal,
+            minimumChangeThreshold: args.minimumChangeThreshold
         })
 
         let outputRawMarkdown = false
@@ -128,7 +128,7 @@ async function run(): Promise<void> {
             ...commentInfo,
             body:
                 `Build has succeed ! 🎉\n\n` +
-                markdownDiff +
+                diffResult.markdown +
                 '\n\n<a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>'
         }
 
@@ -138,8 +138,8 @@ async function run(): Promise<void> {
                 await finish({
                     conclusion: 'success',
                     output: {
-                        title: `Compressed Size Action`,
-                        summary: markdownDiff
+                        title: `${diffResult.totalDeltaText}`,
+                        summary: diffResult.markdown
                     }
                 })
             } else {

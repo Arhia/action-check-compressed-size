@@ -4,6 +4,7 @@ A GitHub action that reports changes in compressed file sizes on your PRs.
 
 **Heavily inspired by https://github.com/preactjs/compressed-size-action plus**  
 **- rewritten in Typescript 🎉**  
+**- correct calculation of % differences**  
 **- can install packages in a subdirectory**  
 **- allow to normalize both js and css files**  
 
