@@ -1,26 +1,22 @@
 ---
 name: Bug
-about: Pour signaler un dysfonctionnement.
+about: To file an issue
 title: ''
 labels: 'Nature: bug :bug:'
 assignees: ''
 
 ---
 
-## Résultat observé
+## Expected output
 
 
-## Résultat attendu
+## Actual output
 
 
-## Comment reproduire le problème ?
+## How to reproduce the problem ?
 
-- Dossier :
-- Période : 
-- Salarié : 
-- Action à faire pour déclencher le résultat observé : 
 
-## Le cas échéant : analyse et piste de résolution 
+## An idea how to fix it ? 
 
 
 <!-- GENERATED_BY_TEMPLATE. NE PAS EFFACER CETTE LIGNE -->

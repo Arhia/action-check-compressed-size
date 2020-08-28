@@ -3216,11 +3216,11 @@ const exec_1 = __webpack_require__(514);
 const size_plugin_core_1 = __importDefault(__webpack_require__(259));
 const utils_1 = __webpack_require__(918);
 const createCheck_1 = __webpack_require__(502);
+const getAndValidateArgs_1 = __webpack_require__(685);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const args = getAndValidateArgs();
-            core_1.info('Starting GitHub Client');
+            const args = getAndValidateArgs_1.getAndValidateArgs();
             const octokit = github_1.getOctokit(args.repoToken);
             const { number: pull_number } = github_1.context.issue;
             const pr = github_1.context.payload.pull_request;
@@ -3228,16 +3228,18 @@ function run() {
                 throw Error('Could not retrieve PR information. Only "pull_request" triggered workflows are currently supported.');
             }
             const plugin = new size_plugin_core_1.default({
-                compression: core_1.getInput('compression'),
-                pattern: core_1.getInput('pattern') || '**/dist/**/*.js',
-                exclude: core_1.getInput('exclude') || '{**/*.map,**/node_modules/**}',
-                stripHash: utils_1.stripHash(core_1.getInput('strip-hash'))
+                compression: args.compression,
+                pattern: args.pattern,
+                exclude: args.exclude,
+                stripHash: utils_1.stripHash(args.stripHashPattern)
             });
             core_1.info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`);
             const buildScript = core_1.getInput('build-script') || 'build';
-            const cwd = process.cwd();
-            const yarnLock = yield utils_1.fileExists(path_1.default.resolve(cwd, 'yarn.lock'));
-            const packageLock = yield utils_1.fileExists(path_1.default.resolve(cwd, 'package-lock.json'));
+            const workingDir = path_1.default.join(process.cwd(), args.directory);
+            core_1.info(`Working directory : ${workingDir}`);
+            const yarnLock = yield utils_1.fileExists(path_1.default.resolve(workingDir, 'yarn.lock'));
+            const packageLock = yield utils_1.fileExists(path_1.default.resolve(workingDir, 'package-lock.json'));
+            const execOptions = Object.assign({}, (args.directory ? { cwd: args.directory } : {}));
             let npm = `npm`;
             let installScript = `npm install`;
             if (yarnLock) {
@@ -3246,16 +3248,16 @@ function run() {
             else if (packageLock) {
                 installScript = `npm ci`;
             }
-            core_1.startGroup(`[current] Install Dependencies`);
+            core_1.startGroup(`[current branch] Install Dependencies`);
             core_1.info(`Installing using ${installScript}`);
-            yield exec_1.exec(installScript);
+            yield exec_1.exec(installScript, [], execOptions);
             core_1.endGroup();
-            core_1.startGroup(`[current] Build using ${npm}`);
+            core_1.startGroup(`[current branch] Build using ${npm}`);
             core_1.info(`Building using ${npm} run ${buildScript}`);
-            yield exec_1.exec(`${npm} run ${buildScript}`);
+            yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
-            const newSizes = yield plugin.readFromDisk(cwd);
-            core_1.startGroup(`[base] Checkout target branch`);
+            const newSizes = yield plugin.readFromDisk(workingDir);
+            core_1.startGroup(`[base branch] Checkout target branch`);
             let baseRef;
             try {
                 baseRef = github_1.context.payload.base.ref;
@@ -3290,36 +3292,37 @@ function run() {
                 yield exec_1.exec(`git reset --hard ${pr.base.sha}`);
             }
             core_1.endGroup();
-            core_1.startGroup(`[base] Install Dependencies`);
-            yield exec_1.exec(installScript);
+            core_1.startGroup(`[base branch] Install Dependencies`);
+            yield exec_1.exec(installScript, [], execOptions);
             core_1.endGroup();
-            core_1.startGroup(`[base] Build using ${npm}`);
-            yield exec_1.exec(`${npm} run ${buildScript}`);
+            core_1.startGroup(`[base branch] Build using ${npm}`);
+            yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
-            const oldSizes = yield plugin.readFromDisk(cwd);
-            const diff = yield plugin.getDiff(oldSizes, newSizes);
+            const oldSizes = yield plugin.readFromDisk(workingDir);
+            const diff = (yield plugin.getDiff(oldSizes, newSizes));
             core_1.startGroup(`Size Differences:`);
             const cliText = yield plugin.printSizes(diff);
-            core_1.debug(cliText);
+            core_1.info(cliText);
             core_1.endGroup();
-            const markdownDiff = utils_1.diffTable(diff, {
-                collapseUnchanged: utils_1.toBool(core_1.getInput('collapse-unchanged')),
-                omitUnchanged: utils_1.toBool(core_1.getInput('omit-unchanged')),
-                showTotal: utils_1.toBool(core_1.getInput('show-total')),
-                minimumChangeThreshold: parseInt(core_1.getInput('minimum-change-threshold'), 10)
+            const diffResult = utils_1.diffTable(diff, {
+                collapseUnchanged: args.collapseUnchanged,
+                omitUnchanged: args.omitUnchanged,
+                showTotal: args.showTotal,
+                minimumChangeThreshold: args.minimumChangeThreshold
             });
             let outputRawMarkdown = false;
             const commentInfo = Object.assign(Object.assign({}, github_1.context.repo), { issue_number: pull_number });
-            const comment = Object.assign(Object.assign({}, commentInfo), { body: markdownDiff +
-                    '\n\n<a href="https://github.com/preactjs/compressed-size-action"><sub>compressed-size-action</sub></a>' });
+            const comment = Object.assign(Object.assign({}, commentInfo), { body: `Build has succeed ! 🎉\n\n` +
+                    diffResult.markdown +
+                    '\n\n<a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>' });
             if (utils_1.toBool(core_1.getInput('use-check'))) {
                 if (args.repoToken) {
                     const finish = yield createCheck_1.createCheck(octokit, github_1.context);
                     yield finish({
                         conclusion: 'success',
                         output: {
-                            title: `Compressed Size Action`,
-                            summary: markdownDiff
+                            title: `${diffResult.totalDeltaText}`,
+                            summary: diffResult.markdown
                         }
                     });
                 }
@@ -3334,7 +3337,7 @@ function run() {
                     const comments = (yield octokit.issues.listComments(commentInfo)).data;
                     for (let i = comments.length; i--;) {
                         const c = comments[i];
-                        if (c.user.type === 'Bot' && /<sub>[\s\n]*(compressed|gzip)-size-action/.test(c.body)) {
+                        if (c.user.type === 'Bot' && /<sub>[\s\n]*action-check-compressed-sized/.test(c.body)) {
                             commentId = c.id;
                             break;
                         }
@@ -3394,12 +3397,6 @@ function run() {
             core_1.setFailed(errorAction.message);
         }
     });
-}
-function getAndValidateArgs() {
-    const args = {
-        repoToken: core_1.getInput('repo-token', { required: true })
-    };
-    return args;
 }
 run();
 
@@ -16847,7 +16844,34 @@ module.exports = mkdirsSync
 
 
 /***/ }),
-/* 685 */,
+/* 685 */
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAndValidateArgs = void 0;
+const core_1 = __webpack_require__(186);
+const utils_1 = __webpack_require__(918);
+function getAndValidateArgs() {
+    const args = {
+        repoToken: core_1.getInput('repo-token', { required: true }),
+        directory: core_1.getInput('directory'),
+        pattern: core_1.getInput('pattern') || '**/dist/**/*.js',
+        exclude: core_1.getInput('exclude') || '{**/*.map,**/node_modules/**}',
+        compression: core_1.getInput('compression'),
+        stripHashPattern: core_1.getInput('strip-hash') ? JSON.parse(core_1.getInput('strip-hash')) : [],
+        minimumChangeThreshold: parseInt(core_1.getInput('minimum-change-threshold'), 10),
+        showTotal: utils_1.toBool(core_1.getInput('show-total')),
+        omitUnchanged: utils_1.toBool(core_1.getInput('omit-unchanged')),
+        collapseUnchanged: utils_1.toBool(core_1.getInput('collapse-unchanged'))
+    };
+    return args;
+}
+exports.getAndValidateArgs = getAndValidateArgs;
+
+
+/***/ }),
 /* 686 */,
 /* 687 */,
 /* 688 */,
@@ -20296,20 +20320,24 @@ exports.fileExists = fileExists;
  * Remove any matched hash patterns from a filename string.
  * @returns {(((fileName: string) => string) | undefined)}
  */
-function stripHash(regex) {
-    if (regex) {
+function stripHash(allRegex) {
+    if (allRegex && allRegex.length) {
         return function (fileName) {
-            return fileName.replace(new RegExp(regex), (str, ...hashes) => {
-                hashes = hashes.slice(0, -2).filter(c => c != null);
-                if (hashes.length) {
-                    for (const hash of hashes) {
-                        const hashFormatted = hash || '';
-                        str = str.replace(hashFormatted, hashFormatted.replace(/./g, '*'));
+            let finalStr = fileName;
+            for (const regex of allRegex) {
+                finalStr = finalStr.replace(new RegExp(regex), (str, ...hashes) => {
+                    hashes = hashes.slice(0, -2).filter(c => c != null);
+                    if (hashes.length) {
+                        for (const hash of hashes) {
+                            const hashFormatted = hash || '';
+                            str = str.replace(hashFormatted, hashFormatted.replace(/./g, '*'));
+                        }
+                        return str;
                     }
-                    return str;
-                }
-                return '';
-            });
+                    return '';
+                });
+            }
+            return finalStr;
         };
     }
     return undefined;
@@ -20375,24 +20403,25 @@ function markdownTable(rows) {
 }
 /**
  * Create a Markdown table showing diff data
- * @param {Diff[]} files
- * @param {object} options
- * @param {boolean} [options.showTotal]
- * @param {boolean} [options.collapseUnchanged]
- * @param {boolean} [options.omitUnchanged]
- * @param {number} [options.minimumChangeThreshold]
  */
 function diffTable(files, { showTotal, collapseUnchanged, omitUnchanged, minimumChangeThreshold }) {
     const changedRows = [];
     const unChangedRows = [];
+    const filesInfo = [];
     let totalSize = 0;
     let totalDelta = 0;
     for (const file of files) {
         const { filename, size, delta } = file;
         totalSize += size;
         totalDelta += delta;
-        const difference = ((delta / size) * 100) | 0;
+        const sizeBefore = size - delta;
+        const difference = ((delta / sizeBefore) * 100) | 0;
         const isUnchanged = Math.abs(delta) < minimumChangeThreshold;
+        filesInfo.push({
+            filename,
+            difference,
+            isUnchanged
+        });
         if (isUnchanged && omitUnchanged)
             continue;
         const columns = [
@@ -20413,14 +20442,22 @@ function diffTable(files, { showTotal, collapseUnchanged, omitUnchanged, minimum
         const outUnchanged = markdownTable(unChangedRows);
         out += `\n\n<details><summary>ℹ️ <strong>View Unchanged</strong></summary>\n\n${outUnchanged}\n\n</details>\n\n`;
     }
+    let totalDeltaText = '';
     if (showTotal) {
-        const totalDifference = ((totalDelta / totalSize) * 100) | 0;
-        const totalDeltaText = getDeltaText(totalDelta, totalDifference);
+        const totalSizeBefore = totalSize - totalDelta;
+        const totalDifference = ((totalDelta / totalSizeBefore) * 100) | 0;
+        totalDeltaText = getDeltaText(totalDelta, totalDifference);
         const totalIcon = iconForDifference(totalDifference);
         out = `**Total Size:** ${pretty_bytes_1.default(totalSize)}\n\n${out}`;
         out = `**Size Change:** ${totalDeltaText} ${totalIcon}\n\n${out}`;
     }
-    return out;
+    return {
+        markdown: out,
+        totalSize,
+        totalDelta,
+        totalDeltaText,
+        filesInfo
+    };
 }
 exports.diffTable = diffTable;
 /**
