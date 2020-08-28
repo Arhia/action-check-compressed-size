@@ -3220,7 +3220,6 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const args = getAndValidateArgs();
-            core_1.info('Starting GitHub Client');
             const octokit = github_1.getOctokit(args.repoToken);
             const { number: pull_number } = github_1.context.issue;
             const pr = github_1.context.payload.pull_request;
@@ -3236,6 +3235,7 @@ function run() {
             core_1.info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`);
             const buildScript = core_1.getInput('build-script') || 'build';
             const workingDir = path_1.default.join(process.cwd(), args.directory);
+            core_1.info(`Working directory : ${workingDir}`);
             const yarnLock = yield utils_1.fileExists(path_1.default.resolve(workingDir, 'yarn.lock'));
             const packageLock = yield utils_1.fileExists(path_1.default.resolve(workingDir, 'package-lock.json'));
             const execOptions = Object.assign({}, (args.directory ? { cwd: args.directory } : {}));
@@ -3247,16 +3247,16 @@ function run() {
             else if (packageLock) {
                 installScript = `npm ci`;
             }
-            core_1.startGroup(`[current] Install Dependencies`);
+            core_1.startGroup(`[current branch] Install Dependencies`);
             core_1.info(`Installing using ${installScript}`);
             yield exec_1.exec(installScript, [], execOptions);
             core_1.endGroup();
-            core_1.startGroup(`[current] Build using ${npm}`);
+            core_1.startGroup(`[current branch] Build using ${npm}`);
             core_1.info(`Building using ${npm} run ${buildScript}`);
             yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
             const newSizes = yield plugin.readFromDisk(workingDir);
-            core_1.startGroup(`[base] Checkout target branch`);
+            core_1.startGroup(`[base branch] Checkout target branch`);
             let baseRef;
             try {
                 baseRef = github_1.context.payload.base.ref;
@@ -3291,17 +3291,17 @@ function run() {
                 yield exec_1.exec(`git reset --hard ${pr.base.sha}`);
             }
             core_1.endGroup();
-            core_1.startGroup(`[base] Install Dependencies`);
+            core_1.startGroup(`[base branch] Install Dependencies`);
             yield exec_1.exec(installScript, [], execOptions);
             core_1.endGroup();
-            core_1.startGroup(`[base] Build using ${npm}`);
+            core_1.startGroup(`[base branch] Build using ${npm}`);
             yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
             const oldSizes = yield plugin.readFromDisk(workingDir);
             const diff = yield plugin.getDiff(oldSizes, newSizes);
             core_1.startGroup(`Size Differences:`);
             const cliText = yield plugin.printSizes(diff);
-            core_1.debug(cliText);
+            core_1.info(cliText);
             core_1.endGroup();
             const markdownDiff = utils_1.diffTable(diff, {
                 collapseUnchanged: utils_1.toBool(core_1.getInput('collapse-unchanged')),

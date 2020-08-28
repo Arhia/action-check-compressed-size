@@ -156,7 +156,7 @@ async function run(): Promise<void> {
             let commentId
             try {
                 const comments = (await octokit.issues.listComments(commentInfo)).data
-                for (let i = comments.length; i--;) {
+                for (let i = comments.length; i--; ) {
                     const c = comments[i]
                     if (c.user.type === 'Bot' && /<sub>[\s\n]*(compressed|gzip)-size-action/.test(c.body)) {
                         commentId = c.id
