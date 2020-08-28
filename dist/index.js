@@ -3255,7 +3255,7 @@ function run() {
             core_1.info(`Building using ${npm} run ${buildScript}`);
             yield exec_1.exec(`${npm} run ${buildScript}`, [], execOptions);
             core_1.endGroup();
-            const newSizes = yield plugin.readFromDisk(workingDir);
+            const newSizes = yield plugin.readFromDisk(process.cwd());
             core_1.startGroup(`[base branch] Checkout target branch`);
             let baseRef;
             try {
