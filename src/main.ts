@@ -130,6 +130,7 @@ async function run(): Promise<void> {
         const comment = {
             ...commentInfo,
             body:
+                `Build has succeed ! 🎉\n\n` +
                 markdownDiff +
                 '\n\n<a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>'
         }
