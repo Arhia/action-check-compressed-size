@@ -114,7 +114,7 @@ async function run(): Promise<void> {
 
         startGroup(`Size Differences:`)
         const cliText = await plugin.printSizes(diff)
-        debug(cliText)
+        info(cliText)
         endGroup()
 
         const markdownDiff = diffTable(diff, {
