@@ -1,14 +1,11 @@
 import { info, startGroup, endGroup, getInput, error, setFailed, debug } from '@actions/core'
 import path from 'path'
 import { context, getOctokit } from '@actions/github'
-import { GitHub } from '@actions/github/lib/utils'
 import { exec } from '@actions/exec'
 import SizePlugin from 'size-plugin-core'
 import { fileExists, diffTable, toBool, stripHash } from './utils'
 import { createCheck } from './createCheck'
 import { getAndValidateArgs } from './getAndValidateArgs'
-
-type GithubClient = InstanceType<typeof GitHub>
 
 async function run(): Promise<void> {
     try {
