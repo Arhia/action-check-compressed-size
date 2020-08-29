@@ -77,7 +77,7 @@ jobs:
 `directory` option allow to run all the tasks in a subfolder.  
 It's only convenient if all your stuff is in a subdirectory of your git repository.  
 
-For instance, if `package.json` is in th subfolder `client/`
+For instance, if `package.json` is in the subfolder `client/`
 
 Example : 
 
