@@ -29,7 +29,7 @@
     "@actions/github": "4.0.0",
     "@octokit/rest": "18.0.4",
     "micromatch": "4.0.2",
-    "pretty-bytes": "5.4.0",
+    "pretty-bytes": "5.4.1",
     "size-plugin-core": "0.0.9"
   },
   "devDependencies": {
