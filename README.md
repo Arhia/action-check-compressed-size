@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: Arhia/action-check-compressed-size@v07
+    - uses: Arhia/action-check-compressed-size@v0.7
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 ```
