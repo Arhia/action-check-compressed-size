@@ -435,8 +435,8 @@ function diffTable(files, { showTotal, collapseUnchanged, omitUnchanged, minimum
     }
     let out = markdownTable(changedRows);
     if (unChangedRows.length !== 0) {
-        const outUnchanged = markdownTable(unChangedRows);
-        out += `\n\n<details><summary>ℹ️ <strong>View Unchanged</strong></summary>\n\n${outUnchanged}\n\n</details>\n\n`;
+        const outputUnchanged = markdownTable(unChangedRows);
+        out += `\n\n<details><summary>ℹ️ <strong>View Unchanged</strong></summary>\n\n${outputUnchanged}\n\n</details>\n\n`;
     }
     let totalDeltaText = '';
     if (showTotal) {
