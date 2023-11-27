@@ -153,10 +153,10 @@ async function run(): Promise<void> {
             startGroup(`Updating stats PR comment`)
             let commentId
             try {
-                const comments = (await octokit.issues.listComments(commentInfo)).data
+                const comments = (await octokit.rest.issues.listComments(commentInfo)).data
                 for (let i = comments.length; i--;) {
                     const c = comments[i]
-                    if (c.user.type === 'Bot' && /<sub>[\s\n]*action-check-compressed-sized/.test(c.body)) {
+                    if (c.user?.type === 'Bot' && c.body && /<sub>[\s\n]*action-check-compressed-sized/.test(c.body)) {
                         commentId = c.id
                         break
                     }
@@ -168,7 +168,7 @@ async function run(): Promise<void> {
             if (commentId) {
                 debug(`Updating previous comment #${commentId}`)
                 try {
-                    await octokit.issues.updateComment({
+                    await octokit.rest.issues.updateComment({
                         ...context.repo,
                         comment_id: commentId,
                         body: comment.body
@@ -183,13 +183,13 @@ async function run(): Promise<void> {
             if (!commentId) {
                 debug('Creating new comment')
                 try {
-                    await octokit.issues.createComment(comment)
+                    await octokit.rest.issues.createComment(comment)
                 } catch (e) {
                     debug(`Error creating comment: ${e.message}`)
                     debug(`Submitting a PR review comment instead...`)
                     try {
                         const issue = context.issue || pr
-                        await octokit.pulls.createReview({
+                        await octokit.rest.pulls.createReview({
                             owner: issue.owner,
                             repo: issue.repo,
                             pull_number: issue.number,
