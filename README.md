@@ -29,8 +29,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: Arhia/action-check-compressed-size@v0.7
+    - uses: actions/checkout@v4
+    - uses: Arhia/action-check-compressed-size@v0.8
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 ```
@@ -65,8 +65,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: Arhia/action-check-compressed-size@v0.7
+    - uses: actions/checkout@v4
+    - uses: Arhia/action-check-compressed-size@v0.8
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 +       build-script: "ci"
@@ -96,8 +96,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: Arhia/action-check-compressed-size@v0.7
+    - uses: actions/checkout@v4
+    - uses: Arhia/action-check-compressed-size@v0.8
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 +       pattern: "./build-output/**/*.{js,css,html,json}"
