@@ -1,17 +1,16 @@
-name: 'Test triaging'
+name: 'Test check bundle size'
 on:
   pull_request:
     branches:
     - test
 jobs:
-  triaging:
+  check-bundle-size:
     runs-on: ubuntu-latest
     name: Check bundle size
     steps:
-    - uses: actions/checkout@v2
-    - name: Create comment
+    - uses: actions/checkout@v4
+    - name: Check size
       uses: ./
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         build-script: "build"
-        pattern: "./dist/"

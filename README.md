@@ -1,16 +1,22 @@
-# compressed-size-action
+# action-check-compressed-size
 
 A GitHub action that reports changes in compressed file sizes on your PRs.
+
+**Heavily inspired by https://github.com/preactjs/compressed-size-action plus:**  
+**- rewritten in Typescript 🎉**  
+**- correct calculation of % differences**  
+**- can install packages in a subdirectory**  
+**- allow to normalize both js and css files**  
+
+**Used in production at [Arhia](https://github.com/Arhia)**  
 
 - Automatically uses `yarn` or `npm ci` when lockfiles are present
 - Builds your PR, then builds the target and compares between the two
 - Doesn't upload anything or rely on centralized storage
 - Supports [custom build scripts](#customizing-the-build) and [file patterns](#customizing-the-list-of-files)
 
-<img width="396" src="https://user-images.githubusercontent.com/105127/73027546-a0176a80-3e01-11ea-887b-7326ee289893.png">
 
-<img width="600" src="https://user-images.githubusercontent.com/105127/73027489-8413c900-3e01-11ea-8630-09172b247f82.png">
-
+<img width="600" src="https://user-images.githubusercontent.com/7466144/91588082-eb759680-e957-11ea-8655-23d7fab71217.png">
 
 ### Usage:
 
@@ -18,24 +24,20 @@ Add a workflow (`.github/workflows/main.yml`):
 
 ```yaml
 name: Compressed Size
-
 on: [pull_request]
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - uses: Arhia/action-check-compressed-size@v2
+    - uses: actions/checkout@v4
+    - uses: Arhia/action-check-compressed-size@v0.8
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 ```
 
 ### Customizing the Build
 
-By default, `compressed-size-action` will try to build your PR by running the `"build"` [npm script](https://docs.npmjs.com/misc/scripts) in your `package.json`.
+By default, this action will try to build your PR by running the `"build"` [npm script](https://docs.npmjs.com/misc/scripts) in your `package.json`.
 
 If you need to perform some tasks after dependencies are installed but before building, you can use a "postinstall" npm script to do so. For example, in Lerna-based monorepo:
 
@@ -63,11 +65,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: Arhia/action-check-compressed-size@v2
+    - uses: actions/checkout@v4
+    - uses: Arhia/action-check-compressed-size@v0.8
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 +       build-script: "ci"
+```
+
+### Customizing working directory
+
+`directory` option allow to run all the tasks in a subfolder.  
+It's only convenient if all your stuff is in a subdirectory of your git repository.  
+
+For instance, if `package.json` is in the subfolder `client/`
+
+Example : 
+
+```yaml
+  directory: "client/"
 ```
 
 ### Customizing the list of files
@@ -81,8 +96,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: preactjs/compressed-size-action@v2
+    - uses: actions/checkout@v4
+    - uses: Arhia/action-check-compressed-size@v0.8
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
 +       pattern: "./build-output/**/*.{js,css,html,json}"
@@ -102,20 +117,21 @@ with:
 
 ### Dealing with hashed filenames
 
-A `strip-hash` option was added in `v2` that allows passing a custom Regular Expression pattern that will be used to remove hashes from filenames. The un-hashed filenames are used both for size comparison and display purposes.
+`strip-hash` option allows passing an array of Regular Expression pattern that will be used to remove hashes from filenames. The un-hashed filenames are used both for size comparison and display purposes.
 
 By default, the characters matched by the regex are removed from filenames.
 In the example below, a filename `foo.abcde.js` will be converted to `foo.js`:
 
 ```yaml
-  strip-hash: "\\b\\w{5}\\."
+  strip-hash: '["\\b\\w{5}\\."]'
 ```
 
 This can be customized further using parens to create submatches, which mark where a hash occurs. When a submatch is detected, it will be replaced with asterisks. This is particularly useful when mix of hashed and unhashed filenames are present.
 In the example below, a filename `foo.abcde.chunk.js` will be converted to `foo.*****.chunk.js`:
 
 ```yaml
-  strip-hash: "\\.(\\w{5})\\.chunk\\.js$"
+  strip-hash: '["\\.(\\w{8})\\.chunk\\.js$", "precache-manifest\\.(\\w{32})\\.js$", "runtime-main\\.(\\w{8})\\.js$", "\\.(\\w{8})\\.chunk\\.css$"]'
+
 ```
 
 ### Increasing the required threshold
