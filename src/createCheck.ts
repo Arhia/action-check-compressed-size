@@ -4,14 +4,14 @@ type Octokit = ReturnType<typeof getOctokit>
 
 interface DetailsCheck {
     conclusion:
-    | 'success'
-    | 'failure'
-    | 'neutral'
-    | 'cancelled'
-    | 'skipped'
-    | 'timed_out'
-    | 'action_required'
-    | undefined
+        | 'success'
+        | 'failure'
+        | 'neutral'
+        | 'cancelled'
+        | 'skipped'
+        | 'timed_out'
+        | 'action_required'
+        | undefined
     output: {
         title: string
         summary: string
