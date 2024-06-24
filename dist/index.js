@@ -16,7 +16,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createCheck = void 0;
+exports.createCheck = createCheck;
 /*
  * create a check and return a function that updates(completes) it
  */
@@ -28,7 +28,6 @@ function createCheck(octokit, context) {
         });
     });
 }
-exports.createCheck = createCheck;
 
 
 /***/ }),
@@ -39,7 +38,7 @@ exports.createCheck = createCheck;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getAndValidateArgs = void 0;
+exports.getAndValidateArgs = getAndValidateArgs;
 const core_1 = __nccwpck_require__(42186);
 const utils_1 = __nccwpck_require__(50918);
 function getAndValidateArgs() {
@@ -57,7 +56,6 @@ function getAndValidateArgs() {
     };
     return args;
 }
-exports.getAndValidateArgs = getAndValidateArgs;
 
 
 /***/ }),
@@ -89,8 +87,8 @@ const utils_1 = __nccwpck_require__(50918);
 const createCheck_1 = __nccwpck_require__(69502);
 const getAndValidateArgs_1 = __nccwpck_require__(54685);
 function run() {
-    var _a;
     return __awaiter(this, void 0, void 0, function* () {
+        var _a;
         try {
             const args = (0, getAndValidateArgs_1.getAndValidateArgs)();
             const octokit = (0, github_1.getOctokit)(args.repoToken);
@@ -111,11 +109,18 @@ function run() {
             (0, core_1.info)(`Working directory : ${workingDir}`);
             const yarnLock = yield (0, utils_1.fileExists)(path_1.default.resolve(workingDir, 'yarn.lock'));
             const packageLock = yield (0, utils_1.fileExists)(path_1.default.resolve(workingDir, 'package-lock.json'));
+            const isModernYarn = yield (0, utils_1.fileExists)(path_1.default.resolve(workingDir, '.yarnrc.yml'));
             const execOptions = Object.assign({}, (args.directory ? { cwd: args.directory } : {}));
             let npm = `npm`;
             let installScript = `npm install`;
             if (yarnLock) {
-                installScript = npm = `yarn --frozen-lockfile`;
+                npm = `yarn`;
+                if (isModernYarn) {
+                    installScript = `yarn install --immutable`;
+                }
+                else {
+                    installScript = `yarn install --frozen-lockfile`;
+                }
             }
             else if (packageLock) {
                 installScript = `npm ci`;
@@ -293,7 +298,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.toBool = exports.diffTable = exports.iconForDifference = exports.getDeltaText = exports.stripHash = exports.fileExists = void 0;
+exports.fileExists = fileExists;
+exports.stripHash = stripHash;
+exports.getDeltaText = getDeltaText;
+exports.iconForDifference = iconForDifference;
+exports.diffTable = diffTable;
+exports.toBool = toBool;
 const fs_1 = __importDefault(__nccwpck_require__(57147));
 const pretty_bytes_1 = __importDefault(__nccwpck_require__(25168));
 /**
@@ -311,7 +321,6 @@ function fileExists(filename) {
         }
     });
 }
-exports.fileExists = fileExists;
 /**
  * Remove any matched hash patterns from a filename string.
  * @returns {(((fileName: string) => string) | undefined)}
@@ -338,7 +347,6 @@ function stripHash(allRegex) {
     }
     return undefined;
 }
-exports.stripHash = stripHash;
 function getDeltaText(delta, difference) {
     let deltaText = (delta > 0 ? '+' : '') + (0, pretty_bytes_1.default)(delta);
     if (delta && Math.abs(delta) > 1) {
@@ -346,7 +354,6 @@ function getDeltaText(delta, difference) {
     }
     return deltaText;
 }
-exports.getDeltaText = getDeltaText;
 function iconForDifference(difference) {
     let icon = '';
     if (difference >= 50)
@@ -367,7 +374,6 @@ function iconForDifference(difference) {
         icon = '✅';
     return icon;
 }
-exports.iconForDifference = iconForDifference;
 /**
  * Create a Markdown table from text rows
  */
@@ -455,14 +461,12 @@ function diffTable(files, { showTotal, collapseUnchanged, omitUnchanged, minimum
         filesInfo
     };
 }
-exports.diffTable = diffTable;
 /**
  * Convert a string "true"/"yes"/"1" argument value to a boolean
  */
 function toBool(v) {
     return /^(1|true|yes)$/.test(v);
 }
-exports.toBool = toBool;
 
 
 /***/ }),
