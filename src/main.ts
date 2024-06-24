@@ -37,6 +37,7 @@ async function run(): Promise<void> {
 
         const yarnLock = await fileExists(path.resolve(workingDir, 'yarn.lock'))
         const packageLock = await fileExists(path.resolve(workingDir, 'package-lock.json'))
+        const isModernYarn = await fileExists(path.resolve(workingDir, '.yarnrc.yml'))
 
         const execOptions = {
             ...(args.directory ? { cwd: args.directory } : {})
@@ -45,7 +46,12 @@ async function run(): Promise<void> {
         let npm = `npm`
         let installScript = `npm install`
         if (yarnLock) {
-            installScript = npm = `yarn --frozen-lockfile`
+            npm = `yarn`
+            if (isModernYarn) {
+                installScript = `yarn install --immutable`
+            } else {
+                installScript = `yarn install --frozen-lockfile`
+            }
         } else if (packageLock) {
             installScript = `npm ci`
         }
