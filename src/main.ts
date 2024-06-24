@@ -1,22 +1,19 @@
 import { info, startGroup, endGroup, getInput, error, setFailed, debug } from '@actions/core'
 import path from 'path'
 import { context, getOctokit } from '@actions/github'
-import { GitHub } from '@actions/github/lib/utils'
 import { exec } from '@actions/exec'
 import SizePlugin from 'size-plugin-core'
-import { fileExists, diffTable, toBool, stripHash } from './utils'
+import { fileExists, diffTable, toBool, stripHash, FileDiff } from './utils'
 import { createCheck } from './createCheck'
-
-type GithubClient = InstanceType<typeof GitHub>
-
-type Args = {
-    repoToken: string
-}
+import { getAndValidateArgs } from './getAndValidateArgs'
 
 async function run(): Promise<void> {
     try {
+        let churn = 1
+        let foo = 2
+        churn = foo + churn
+        foo = churn + foo
         const args = getAndValidateArgs()
-        info('Starting GitHub Client')
         const octokit = getOctokit(args.repoToken)
 
         const { number: pull_number } = context.issue
@@ -30,41 +27,52 @@ async function run(): Promise<void> {
         }
 
         const plugin = new SizePlugin({
-            compression: getInput('compression'),
-            pattern: getInput('pattern') || '**/dist/**/*.js',
-            exclude: getInput('exclude') || '{**/*.map,**/node_modules/**}',
-            stripHash: stripHash(getInput('strip-hash'))
+            compression: args.compression,
+            pattern: args.pattern,
+            exclude: args.exclude,
+            stripHash: stripHash(args.stripHashPattern)
         })
 
         info(`PR #${pull_number} is targetted at ${pr.base.ref} (${pr.base.sha})`)
 
         const buildScript = getInput('build-script') || 'build'
-        const cwd = process.cwd()
+        const workingDir = path.join(process.cwd(), args.directory)
+        info(`Working directory : ${workingDir}`)
 
-        const yarnLock = await fileExists(path.resolve(cwd, 'yarn.lock'))
-        const packageLock = await fileExists(path.resolve(cwd, 'package-lock.json'))
+        const yarnLock = await fileExists(path.resolve(workingDir, 'yarn.lock'))
+        const packageLock = await fileExists(path.resolve(workingDir, 'package-lock.json'))
+        const isModernYarn = await fileExists(path.resolve(workingDir, '.yarnrc.yml'))
+
+        const execOptions = {
+            ...(args.directory ? { cwd: args.directory } : {})
+        }
 
         let npm = `npm`
         let installScript = `npm install`
         if (yarnLock) {
-            installScript = npm = `yarn --frozen-lockfile`
+            npm = `yarn`
+            if (isModernYarn) {
+                installScript = `yarn install --immutable`
+            } else {
+                installScript = `yarn install --frozen-lockfile`
+            }
         } else if (packageLock) {
             installScript = `npm ci`
         }
 
-        startGroup(`[current] Install Dependencies`)
+        startGroup(`[current branch] Install Dependencies`)
         info(`Installing using ${installScript}`)
-        await exec(installScript)
+        await exec(installScript, [], execOptions)
         endGroup()
 
-        startGroup(`[current] Build using ${npm}`)
+        startGroup(`[current branch] Build using ${npm}`)
         info(`Building using ${npm} run ${buildScript}`)
-        await exec(`${npm} run ${buildScript}`)
+        await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
-        const newSizes = await plugin.readFromDisk(cwd)
+        const newSizes = await plugin.readFromDisk(workingDir)
 
-        startGroup(`[base] Checkout target branch`)
+        startGroup(`[base branch] Checkout target branch`)
         let baseRef
         try {
             baseRef = context.payload.base.ref
@@ -95,28 +103,28 @@ async function run(): Promise<void> {
         }
         endGroup()
 
-        startGroup(`[base] Install Dependencies`)
-        await exec(installScript)
+        startGroup(`[base branch] Install Dependencies`)
+        await exec(installScript, [], execOptions)
         endGroup()
 
-        startGroup(`[base] Build using ${npm}`)
-        await exec(`${npm} run ${buildScript}`)
+        startGroup(`[base branch] Build using ${npm}`)
+        await exec(`${npm} run ${buildScript}`, [], execOptions)
         endGroup()
 
-        const oldSizes = await plugin.readFromDisk(cwd)
+        const oldSizes = await plugin.readFromDisk(workingDir)
 
-        const diff = await plugin.getDiff(oldSizes, newSizes)
+        const diff = (await plugin.getDiff(oldSizes, newSizes)) as FileDiff[]
 
         startGroup(`Size Differences:`)
         const cliText = await plugin.printSizes(diff)
-        debug(cliText)
+        info(cliText)
         endGroup()
 
-        const markdownDiff = diffTable(diff, {
-            collapseUnchanged: toBool(getInput('collapse-unchanged')),
-            omitUnchanged: toBool(getInput('omit-unchanged')),
-            showTotal: toBool(getInput('show-total')),
-            minimumChangeThreshold: parseInt(getInput('minimum-change-threshold'), 10)
+        const diffResult = diffTable(diff, {
+            collapseUnchanged: args.collapseUnchanged,
+            omitUnchanged: args.omitUnchanged,
+            showTotal: args.showTotal,
+            minimumChangeThreshold: args.minimumChangeThreshold
         })
 
         let outputRawMarkdown = false
@@ -129,8 +137,9 @@ async function run(): Promise<void> {
         const comment = {
             ...commentInfo,
             body:
-                markdownDiff +
-                '\n\n<a href="https://github.com/preactjs/compressed-size-action"><sub>compressed-size-action</sub></a>'
+                `Build has succeed ! 🎉\n\n` +
+                diffResult.markdown +
+                '\n\n<a href="https://github.com/Arhia/action-check-compressed-size"><sub>Arhia/action-check-compressed-size</sub></a>'
         }
 
         if (toBool(getInput('use-check'))) {
@@ -139,8 +148,8 @@ async function run(): Promise<void> {
                 await finish({
                     conclusion: 'success',
                     output: {
-                        title: `Compressed Size Action`,
-                        summary: markdownDiff
+                        title: `${diffResult.totalDeltaText}`,
+                        summary: diffResult.markdown
                     }
                 })
             } else {
@@ -150,10 +159,10 @@ async function run(): Promise<void> {
             startGroup(`Updating stats PR comment`)
             let commentId
             try {
-                const comments = (await octokit.issues.listComments(commentInfo)).data
-                for (let i = comments.length; i--; ) {
+                const comments = (await octokit.rest.issues.listComments(commentInfo)).data
+                for (let i = comments.length; i--;) {
                     const c = comments[i]
-                    if (c.user.type === 'Bot' && /<sub>[\s\n]*(compressed|gzip)-size-action/.test(c.body)) {
+                    if (c.user?.type === 'Bot' && c.body && /<sub>[\s\n]*action-check-compressed-sized/.test(c.body)) {
                         commentId = c.id
                         break
                     }
@@ -165,7 +174,7 @@ async function run(): Promise<void> {
             if (commentId) {
                 debug(`Updating previous comment #${commentId}`)
                 try {
-                    await octokit.issues.updateComment({
+                    await octokit.rest.issues.updateComment({
                         ...context.repo,
                         comment_id: commentId,
                         body: comment.body
@@ -180,13 +189,13 @@ async function run(): Promise<void> {
             if (!commentId) {
                 debug('Creating new comment')
                 try {
-                    await octokit.issues.createComment(comment)
+                    await octokit.rest.issues.createComment(comment)
                 } catch (e) {
                     debug(`Error creating comment: ${e.message}`)
                     debug(`Submitting a PR review comment instead...`)
                     try {
                         const issue = context.issue || pr
-                        await octokit.pulls.createReview({
+                        await octokit.rest.pulls.createReview({
                             owner: issue.owner,
                             repo: issue.repo,
                             pull_number: issue.number,
@@ -216,14 +225,6 @@ async function run(): Promise<void> {
         error(errorAction)
         setFailed(errorAction.message)
     }
-}
-
-function getAndValidateArgs(): Args {
-    const args = {
-        repoToken: getInput('repo-token', { required: true })
-    }
-
-    return args
 }
 
 run()

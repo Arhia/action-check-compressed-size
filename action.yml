@@ -38,5 +38,5 @@ inputs:
     description: 'minimatch pattern of files NOT to track'
     default: '{**/*.map,**/node_modules/**}'
 runs:
-  using: 'node12'
-  main: 'index.js'
+  using: 'node20'
+  main: 'dist/index.js'
